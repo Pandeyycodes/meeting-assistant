@@ -1,0 +1,8 @@
+.env
+.venv/
+__pycache__/
+uploads/
+downloades/
+*.wav
+*.mp3
+chroma_db/
