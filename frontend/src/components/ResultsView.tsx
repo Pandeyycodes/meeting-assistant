@@ -5,6 +5,7 @@ import { estimatedMinutes, wordCount } from "../lib/format"
 import SummaryTab from "./SummaryTab"
 import TranscriptTab from "./TranscriptTab"
 import AskTab from "./AskTab"
+import ExportBar from "./ExportBar"
 
 type Tab = "summary" | "transcript" | "ask"
 
@@ -50,6 +51,8 @@ export default function ResultsView({ job }: { job: Job }) {
       {tab === "summary" && <SummaryTab summary={job.summary} />}
       {tab === "transcript" && <TranscriptTab transcript={job.transcript} />}
       {tab === "ask" && <AskTab jobId={job.job_id} />}
+
+      <ExportBar jobId={job.job_id} title={job.title} />
     </div>
   )
 }
