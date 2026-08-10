@@ -9,6 +9,16 @@ export interface Job {
   summary: string | null
   transcript: string | null
   error: string | null
+  created_at: string
+}
+
+export interface JobSummary {
+  job_id: string
+  title: string | null
+  status: JobStatus
+  stage: string
+  created_at: string
+  word_count: number
 }
 
 export interface StartTranscriptionInput {

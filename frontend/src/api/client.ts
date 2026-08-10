@@ -1,4 +1,4 @@
-import type { Job, StartTranscriptionInput } from "./types"
+import type { Job, JobSummary, StartTranscriptionInput } from "./types"
 
 export const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000"
 
@@ -34,6 +34,12 @@ export async function startTranscription(input: StartTranscriptionInput): Promis
 
 export async function getJob(jobId: string): Promise<Job> {
   const res = await fetch(`${API_URL}/jobs/${jobId}`)
+  if (!res.ok) throw new ApiError(res.status, await parseErrorDetail(res))
+  return res.json()
+}
+
+export async function listJobs(limit = 50): Promise<JobSummary[]> {
+  const res = await fetch(`${API_URL}/jobs?limit=${limit}`)
   if (!res.ok) throw new ApiError(res.status, await parseErrorDetail(res))
   return res.json()
 }
