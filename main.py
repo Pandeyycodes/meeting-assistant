@@ -29,9 +29,15 @@ from exporter import export_pdf, export_txt
 
 app = FastAPI(title="Meeting Assistant API")
 
+DEFAULT_FRONTEND_ORIGINS = "http://localhost:5173,http://localhost:3000"
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")],
+    allow_origins=[
+        origin.strip()
+        for origin in os.getenv("FRONTEND_ORIGIN", DEFAULT_FRONTEND_ORIGINS).split(",")
+        if origin.strip()
+    ],
     allow_methods=["*"],
     allow_headers=["*"],
 )
