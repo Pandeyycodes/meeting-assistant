@@ -1,7 +1,31 @@
+import { useState } from "react"
 import BackgroundGlow from "./components/BackgroundGlow"
 import Header from "./components/Header"
+import InputPanel from "./components/InputPanel"
+import { ApiError, startTranscription } from "./api/client"
+import { useJobPolling } from "./hooks/useJobPolling"
+import type { StartTranscriptionInput } from "./api/types"
 
 function App() {
+  const [jobId, setJobId] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+
+  const { job, error: pollError } = useJobPolling(jobId)
+
+  const handleSubmit = async (input: StartTranscriptionInput) => {
+    setSubmitting(true)
+    setSubmitError(null)
+    try {
+      const { job_id } = await startTranscription(input)
+      setJobId(job_id)
+    } catch (err) {
+      setSubmitError(err instanceof ApiError ? err.message : "Couldn't reach the server. Is the API running?")
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   return (
     <div className="flex min-h-screen flex-col text-gray-100">
       <BackgroundGlow />
@@ -21,8 +45,28 @@ function App() {
           </p>
         </div>
 
-        <div className="glass-panel flex flex-1 items-center justify-center border-dashed p-16 text-center text-sm text-gray-500 animate-fade-up [animation-delay:100ms]">
-          Frontend shell ready — input form lands next.
+        <div className="grid flex-1 grid-cols-1 items-start gap-6 lg:grid-cols-[22rem_1fr]">
+          <InputPanel onSubmit={handleSubmit} submitting={submitting} />
+
+          <div className="glass-panel flex min-h-80 flex-1 flex-col items-center justify-center gap-3 p-10 text-center animate-fade-up [animation-delay:100ms]">
+            {submitError || pollError ? (
+              <p className="max-w-sm text-sm text-red-300">{submitError ?? pollError}</p>
+            ) : job ? (
+              <>
+                <p className="text-sm font-medium text-gray-200">
+                  {job.status === "failed" ? "Something went wrong" : "Working on it…"}
+                </p>
+                <p className="text-xs text-gray-500">
+                  stage: {job.stage} · {Math.round(job.progress * 100)}%
+                </p>
+                {job.error && <p className="max-w-sm text-sm text-red-300">{job.error}</p>}
+              </>
+            ) : (
+              <p className="max-w-xs text-sm text-gray-500">
+                Upload a file or paste a YouTube URL, then hit process. Results show up here.
+              </p>
+            )}
+          </div>
         </div>
       </main>
 
