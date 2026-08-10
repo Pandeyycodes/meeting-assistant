@@ -2,6 +2,9 @@ import { useState } from "react"
 import BackgroundGlow from "./components/BackgroundGlow"
 import Header from "./components/Header"
 import InputPanel from "./components/InputPanel"
+import ProgressView from "./components/ProgressView"
+import EmptyState from "./components/EmptyState"
+import ErrorBanner from "./components/ErrorBanner"
 import { ApiError, startTranscription } from "./api/client"
 import { useJobPolling } from "./hooks/useJobPolling"
 import type { StartTranscriptionInput } from "./api/types"
@@ -48,23 +51,19 @@ function App() {
         <div className="grid flex-1 grid-cols-1 items-start gap-6 lg:grid-cols-[22rem_1fr]">
           <InputPanel onSubmit={handleSubmit} submitting={submitting} />
 
-          <div className="glass-panel flex min-h-80 flex-1 flex-col items-center justify-center gap-3 p-10 text-center animate-fade-up [animation-delay:100ms]">
+          <div className="flex min-h-80 flex-1 flex-col items-center justify-center animate-fade-up [animation-delay:100ms]">
             {submitError || pollError ? (
-              <p className="max-w-sm text-sm text-red-300">{submitError ?? pollError}</p>
-            ) : job ? (
-              <>
-                <p className="text-sm font-medium text-gray-200">
-                  {job.status === "failed" ? "Something went wrong" : "Working on it…"}
-                </p>
-                <p className="text-xs text-gray-500">
-                  stage: {job.stage} · {Math.round(job.progress * 100)}%
-                </p>
-                {job.error && <p className="max-w-sm text-sm text-red-300">{job.error}</p>}
-              </>
+              <ErrorBanner message={submitError ?? pollError ?? ""} />
+            ) : job?.status === "failed" ? (
+              <ErrorBanner message={job.error ?? "The pipeline failed unexpectedly."} />
+            ) : job && job.status !== "done" ? (
+              <ProgressView job={job} />
+            ) : job?.status === "done" ? (
+              <div className="glass-panel w-full max-w-md p-10 text-center text-sm text-gray-400">
+                Done — results view lands next.
+              </div>
             ) : (
-              <p className="max-w-xs text-sm text-gray-500">
-                Upload a file or paste a YouTube URL, then hit process. Results show up here.
-              </p>
+              <EmptyState />
             )}
           </div>
         </div>
