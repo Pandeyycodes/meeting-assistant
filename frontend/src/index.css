@@ -1,0 +1,109 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+
+  --color-canvas: #08080d;
+  --color-surface: #0f0f18;
+  --color-accent: #818cf8;
+  --color-accent-2: #c084fc;
+
+  --animate-fade-up: fade-up 0.5s ease both;
+  --animate-shimmer: shimmer 2.2s linear infinite;
+  --animate-glow: glow 6s ease-in-out infinite;
+
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes shimmer {
+    0% {
+      background-position: -200% 0;
+    }
+    100% {
+      background-position: 200% 0;
+    }
+  }
+  @keyframes glow {
+    0%,
+    100% {
+      opacity: 0.55;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.85;
+      transform: scale(1.08);
+    }
+  }
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background: var(--color-canvas);
+  color: #e5e7eb;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: rgba(129, 140, 248, 0.35);
+  color: #fff;
+}
+
+/* Thin, unobtrusive scrollbar for the transcript/ask panes */
+.scroll-thin::-webkit-scrollbar {
+  width: 8px;
+}
+.scroll-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scroll-thin::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+}
+.scroll-thin::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+@layer components {
+  .glass-panel {
+    @apply relative rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-xl shadow-[0_8px_40px_-12px_rgba(0,0,0,0.6)];
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 font-semibold text-white
+      bg-gradient-to-r from-indigo-500 to-fuchsia-500
+      shadow-[0_4px_20px_-4px_rgba(129,140,248,0.6)]
+      transition-all duration-200 hover:shadow-[0_6px_28px_-4px_rgba(192,132,252,0.7)] hover:-translate-y-0.5
+      disabled:opacity-40 disabled:pointer-events-none disabled:translate-y-0;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 font-medium text-gray-200
+      border border-white/12 bg-white/[0.03]
+      transition-all duration-200 hover:border-white/25 hover:bg-white/[0.07]
+      disabled:opacity-40 disabled:pointer-events-none;
+  }
+
+  .field {
+    @apply w-full rounded-xl border border-white/10 bg-black/25 px-4 py-3 text-sm text-gray-100
+      placeholder:text-gray-500 outline-none transition-colors
+      focus:border-indigo-400/60 focus:ring-2 focus:ring-indigo-400/20;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-medium text-gray-300;
+  }
+}
