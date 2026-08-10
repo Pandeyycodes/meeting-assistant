@@ -9,7 +9,7 @@ can drive it. See PLAN.md Phase 1.
 
 import os
 import uuid
-from enum import Enum
+from datetime import datetime, timezone
 from typing import Optional
 
 from dotenv import load_dotenv
@@ -22,7 +22,9 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 
 from audio_processor import chunk_audio, convert_to_wav, download_youttube_audio
+from models import Job, JobStatus, JobSummary
 from rag import answer_question, build_qa_chain, build_vectorstore, load_vectorstore
+from storage import init_db, load_all_jobs, save_job
 from Summerize import generate_title, summarize
 from transcriber import transcribe_all
 from exporter import export_pdf, export_txt
@@ -43,27 +45,20 @@ app.add_middleware(
 )
 
 
-class JobStatus(str, Enum):
-    QUEUED = "queued"
-    PROCESSING = "processing"
-    DONE = "done"
-    FAILED = "failed"
+# Job metadata lives in-memory for fast reads (this is a single-process
+# dev/portfolio deployment) but every meaningful change is mirrored to
+# SQLite via save_job() below, so history survives a restart.
+init_db()
+jobs: dict[str, Job] = load_all_jobs()
 
-
-class Job(BaseModel):
-    job_id: str
-    status: JobStatus = JobStatus.QUEUED
-    stage: str = "queued"
-    progress: float = 0.0
-    title: Optional[str] = None
-    summary: Optional[str] = None
-    transcript: Optional[str] = None
-    error: Optional[str] = None
-
-
-# In-memory job store: fine for a single-process dev/portfolio deployment.
-# A restart or a second worker process would need Redis/a DB instead.
-jobs: dict[str, Job] = {}
+# A job that was queued/processing when the server last stopped never
+# finished and never will — surface it as failed instead of leaving it
+# stuck, which would otherwise poll forever on the frontend.
+for _job in jobs.values():
+    if _job.status in (JobStatus.QUEUED, JobStatus.PROCESSING):
+        _job.status = JobStatus.FAILED
+        _job.error = "Interrupted by a server restart."
+        save_job(_job)
 
 
 UPLOAD_DIR = "uploads"
@@ -100,18 +95,22 @@ def run_pipeline(job_id: str, youtube_url: Optional[str], upload_path: Optional[
         job.stage, job.progress = "transcribing", 0.45
         transcript = transcribe_all(chunks, translate=translate)
         job.transcript = transcript
+        save_job(job)
 
         job.stage, job.progress = "summarizing", 0.75
         job.summary = summarize(transcript)
         job.title = generate_title(transcript)
+        save_job(job)
 
         job.stage, job.progress = "indexing", 0.90
         build_vectorstore(transcript, job_id=job_id)
 
         job.stage, job.progress, job.status = "done", 1.0, JobStatus.DONE
+        save_job(job)
     except Exception as e:
         job.status = JobStatus.FAILED
         job.error = str(e)
+        save_job(job)
 
 
 @app.post("/transcribe")
@@ -125,7 +124,8 @@ async def transcribe(
         raise HTTPException(400, "Provide either youtube_url or file")
 
     job_id = uuid.uuid4().hex
-    jobs[job_id] = Job(job_id=job_id)
+    jobs[job_id] = Job(job_id=job_id, created_at=datetime.now(timezone.utc).isoformat())
+    save_job(jobs[job_id])
 
     upload_path = None
     if file:
@@ -135,6 +135,22 @@ async def transcribe(
 
     background_tasks.add_task(run_pipeline, job_id, youtube_url, upload_path, translate)
     return {"job_id": job_id}
+
+
+@app.get("/jobs", response_model=list[JobSummary])
+def list_jobs(limit: int = 50):
+    items = sorted(jobs.values(), key=lambda j: j.created_at, reverse=True)[:limit]
+    return [
+        JobSummary(
+            job_id=j.job_id,
+            title=j.title,
+            status=j.status,
+            stage=j.stage,
+            created_at=j.created_at,
+            word_count=len(j.transcript.split()) if j.transcript else 0,
+        )
+        for j in items
+    ]
 
 
 @app.get("/jobs/{job_id}", response_model=Job)
