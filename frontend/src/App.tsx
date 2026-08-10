@@ -3,6 +3,7 @@ import BackgroundGlow from "./components/BackgroundGlow"
 import Header from "./components/Header"
 import InputPanel from "./components/InputPanel"
 import ProgressView from "./components/ProgressView"
+import ResultsView from "./components/ResultsView"
 import EmptyState from "./components/EmptyState"
 import ErrorBanner from "./components/ErrorBanner"
 import { ApiError, startTranscription } from "./api/client"
@@ -59,9 +60,7 @@ function App() {
             ) : job && job.status !== "done" ? (
               <ProgressView job={job} />
             ) : job?.status === "done" ? (
-              <div className="glass-panel w-full max-w-md p-10 text-center text-sm text-gray-400">
-                Done — results view lands next.
-              </div>
+              <ResultsView job={job} />
             ) : (
               <EmptyState />
             )}
