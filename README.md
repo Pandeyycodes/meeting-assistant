@@ -33,7 +33,7 @@ Give it audio and it runs a five-step pipeline, end to end:
 | 🔎 **Index** | The transcript is embedded and stored in a **vector database** so it can be searched by meaning. |
 | 💬 **Ask** | Questions are answered using **only** the relevant parts of the transcript — grounded, not guessed. |
 
-Results export to **`.txt`** or **`.pdf`**.
+Results export to **`.txt`** or **`.pdf`**. Every meeting is saved — the sidebar lists past meetings (searchable by title) and reopens them straight from where they left off, even across a server restart.
 
 ---
 
@@ -48,6 +48,10 @@ Results export to **`.txt`** or **`.pdf`**.
 | Summary | Transcript | Ask (Q&A) |
 |---------|-----------|-----------|
 | ![Summary](assets/frontend-summary.png) | ![Transcript](assets/frontend-transcript.png) | ![Ask](assets/frontend-ask.png) |
+
+| Recent meetings (searchable history) |
+|---------------------------------------|
+| ![History](assets/frontend-history.png) |
 
 <details>
 <summary><strong>Streamlit UI</strong> (<code>app.py</code>) — the original single-file app, still included</summary>
@@ -115,7 +119,7 @@ flowchart TD
         S["Streamlit UI<br/>app.py — ✅"]
     end
 
-    API["FastAPI<br/>main.py<br/>/transcribe · /jobs/:id · /ask · /export"]
+    API["FastAPI<br/>main.py<br/>/transcribe · /jobs · /jobs/:id · /ask · /export"]
 
     subgraph CORE["⚙️ Shared pipeline"]
         PIPE["audio_processor · transcriber<br/>Summerize · rag · exporter"]
@@ -124,19 +128,21 @@ flowchart TD
     R -- "fetch (JSON / multipart)" --> API
     API --> PIPE
     S --> PIPE
+    API --> DB["🗄️ SQLite<br/>meetings.db (job history)"]
 
     PIPE --> W["Whisper (local)"]
     PIPE --> MI["Mistral (API)"]
-    PIPE --> CH["Chroma + MiniLM"]
+    PIPE --> CH["Chroma + MiniLM<br/>(per-meeting Q&A index)"]
 
     style R fill:#818cf8,color:#0b0b12
     style S fill:#FF4B4B,color:#fff
     style API fill:#009688,color:#fff
+    style DB fill:#e7eefe,color:#151c27
 ```
 
-- **React** (`frontend/`) — Vite + TypeScript + Tailwind. Submits to `/transcribe`, polls `/jobs/{id}` for live progress, asks questions against `/ask`, downloads via `/export`.
+- **React** (`frontend/`) — Vite + TypeScript + Tailwind. Submits to `/transcribe`, polls `/jobs/{id}` for live progress, lists/searches history via `/jobs`, asks questions against `/ask`, downloads via `/export`.
 - **Streamlit** (`app.py`) — the original single-file app; still works standalone, no API needed.
-- **FastAPI** (`main.py`) — runs transcription as a **background job** and reports progress via polling. Explore it directly at `/docs`.
+- **FastAPI** (`main.py`) — runs transcription as a **background job**, reports progress via polling, and checkpoints job metadata to SQLite (`storage.py`) so history survives a restart. Explore it directly at `/docs`.
 
 ---
 
@@ -149,6 +155,7 @@ flowchart TD
 | Transcription | OpenAI Whisper (local), PyTorch |
 | Summary & Q&A | Mistral (`mistral-small-latest`) via LangChain |
 | Retrieval (RAG) | sentence-transformers embeddings, Chroma |
+| Job history | SQLite (`storage.py`) |
 | Web API | FastAPI, Uvicorn |
 | Alternate UI | Streamlit |
 | Export | fpdf2 |
@@ -161,11 +168,13 @@ flowchart TD
 frontend/           React + TypeScript + Tailwind UI (talks to main.py over HTTP)
   src/
     api/             typed fetch client + job-polling hook
-    components/       InputPanel, ProgressView, ResultsView, tabs, ExportBar…
-    lib/format.ts     word count / est. length helpers
+    components/       InputPanel, ProgressView, ResultsView, tabs, HistoryPanel, ExportBar…
+    lib/format.ts     word count / est. length / relative-time helpers
 
 app.py              Streamlit UI + pipeline orchestration  (standalone app)
 main.py             FastAPI backend  (HTTP API over the same pipeline)
+models.py           shared Job / JobStatus / JobSummary models
+storage.py          SQLite persistence for job history
 audio_processor.py  download / convert / chunk audio
 transcriber.py      Whisper transcription (with translate option)
 Summerize.py        map-reduce summary + title generation
@@ -269,6 +278,7 @@ Want to tweak something? Here's the map:
 | Swap the LLM | `rag.py` / `Summerize.py` | `get_llm()` |
 | Change the React UI's look | `frontend/src/index.css` | the `@theme` design tokens + `.glass-panel`/`.btn-*` utilities |
 | Add a screen/component | `frontend/src/components/` | wire it into `App.tsx` |
+| Change how much history is kept/searched | `main.py` / `frontend/src/components/HistoryPanel.tsx` | `list_jobs(limit=...)` / the client-side `.filter()` on title |
 | Change the Streamlit UI's look | `app.py` | the `st.markdown("<style>…")` block |
 | Add an API endpoint | `main.py` | the `@app.get/post` routes |
 | Change export formatting | `exporter.py` | `export_txt` / `export_pdf` |
@@ -282,7 +292,7 @@ Want to tweak something? Here's the map:
 Deliberate trade-offs for a project (not a production service):
 
 - **Whisper runs on CPU by default** → long recordings transcribe slowly. A CUDA build of PyTorch speeds this up a lot.
-- **The FastAPI job store is in-memory** → a server restart forgets jobs. Production would use Redis or a database.
+- **Job history is a single SQLite file** (`meetings.db`) → fine for single-user/portfolio use, not built for concurrent multi-writer access. A job that's still `queued`/`processing` when the server restarts is marked `failed` rather than resumed.
 - **The React frontend is dev-only** — it runs against `uvicorn --reload` on `localhost:8000`; there's no production build/deploy step wired up yet.
 - **PDF export handles English well**, but not Devanagari/Hindi without adding a Unicode font. The `.txt` export keeps everything.
 - **YouTube extraction depends on yt-dlp** keeping up with YouTube's changes; file upload is the reliable path.
@@ -291,8 +301,8 @@ Deliberate trade-offs for a project (not a production service):
 
 ## 🗺️ Roadmap
 
+- [x] Persist and search across **multiple** past meetings
 - [ ] Deploy the React frontend + FastAPI backend somewhere public
-- [ ] Persist and search across **multiple** past meetings
 - [ ] Speaker diarization ("who said what")
 - [ ] Swap Whisper-translate for a dedicated translation API
 
