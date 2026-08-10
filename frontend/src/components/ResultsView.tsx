@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { FileText, MessageCircleQuestion, ScrollText } from "lucide-react"
+import { FileText, MessageCircleQuestion, Plus, ScrollText } from "lucide-react"
 import type { Job } from "../api/types"
 import { estimatedMinutes, wordCount } from "../lib/format"
 import SummaryTab from "./SummaryTab"
@@ -15,14 +15,22 @@ const TABS: { key: Tab; label: string; icon: typeof FileText }[] = [
   { key: "ask", label: "Ask", icon: MessageCircleQuestion },
 ]
 
-export default function ResultsView({ job }: { job: Job }) {
+export default function ResultsView({ job, onReset }: { job: Job; onReset?: () => void }) {
   const [tab, setTab] = useState<Tab>("summary")
   const transcript = job.transcript ?? ""
 
   return (
     <div className="glass-panel animate-fade-up flex w-full flex-col overflow-hidden">
       <div className="flex flex-col gap-4 border-b border-white/10 p-6">
-        <h3 className="text-lg font-bold text-white">{job.title ?? "Meeting"}</h3>
+        <div className="flex items-start justify-between gap-3">
+          <h3 className="text-lg font-bold text-white">{job.title ?? "Meeting"}</h3>
+          {onReset && (
+            <button type="button" onClick={onReset} className="btn-secondary shrink-0 px-3 py-1.5 text-xs">
+              <Plus className="h-3.5 w-3.5" />
+              New
+            </button>
+          )}
+        </div>
         <div className="flex flex-wrap gap-2">
           <span className="chip">{wordCount(transcript).toLocaleString()} words</span>
           <span className="chip">~{estimatedMinutes(transcript)} min</span>

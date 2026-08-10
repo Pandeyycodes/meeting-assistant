@@ -16,6 +16,7 @@ function App() {
   const [submitError, setSubmitError] = useState<string | null>(null)
 
   const { job, error: pollError } = useJobPolling(jobId)
+  const isActive = job?.status === "queued" || job?.status === "processing"
 
   const handleSubmit = async (input: StartTranscriptionInput) => {
     setSubmitting(true)
@@ -30,12 +31,17 @@ function App() {
     }
   }
 
+  const handleReset = () => {
+    setJobId(null)
+    setSubmitError(null)
+  }
+
   return (
     <div className="flex min-h-screen flex-col text-gray-100">
       <BackgroundGlow />
       <Header />
 
-      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col px-6 pb-16 sm:px-8">
+      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-6 pb-16 sm:px-8">
         <div className="mb-8 animate-fade-up">
           <h2 className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
             Drop in a recording, get back{" "}
@@ -50,17 +56,19 @@ function App() {
         </div>
 
         <div className="grid flex-1 grid-cols-1 items-start gap-6 lg:grid-cols-[22rem_1fr]">
-          <InputPanel onSubmit={handleSubmit} submitting={submitting} />
+          <div className="lg:sticky lg:top-8">
+            <InputPanel onSubmit={handleSubmit} submitting={submitting} disabled={isActive} />
+          </div>
 
           <div className="flex min-h-80 flex-1 flex-col items-center justify-center animate-fade-up [animation-delay:100ms]">
             {submitError || pollError ? (
-              <ErrorBanner message={submitError ?? pollError ?? ""} />
+              <ErrorBanner message={submitError ?? pollError ?? ""} onRetry={handleReset} />
             ) : job?.status === "failed" ? (
-              <ErrorBanner message={job.error ?? "The pipeline failed unexpectedly."} />
+              <ErrorBanner message={job.error ?? "The pipeline failed unexpectedly."} onRetry={handleReset} />
             ) : job && job.status !== "done" ? (
               <ProgressView job={job} />
             ) : job?.status === "done" ? (
-              <ResultsView job={job} />
+              <ResultsView job={job} onReset={handleReset} />
             ) : (
               <EmptyState />
             )}
@@ -68,7 +76,7 @@ function App() {
         </div>
       </main>
 
-      <footer className="mx-auto w-full max-w-5xl px-6 pb-8 text-center text-xs text-gray-600 sm:px-8">
+      <footer className="mx-auto w-full max-w-6xl px-6 pb-8 text-center text-xs text-gray-600 sm:px-8">
         Transcription runs locally. Your audio never leaves this machine.
       </footer>
     </div>

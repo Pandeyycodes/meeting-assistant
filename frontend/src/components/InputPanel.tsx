@@ -9,9 +9,10 @@ const ACCEPTED_TYPES = ".mp3,.wav,.m4a,.webm,.mp4"
 interface InputPanelProps {
   onSubmit: (input: StartTranscriptionInput) => void
   submitting: boolean
+  disabled?: boolean
 }
 
-export default function InputPanel({ onSubmit, submitting }: InputPanelProps) {
+export default function InputPanel({ onSubmit, submitting, disabled }: InputPanelProps) {
   const [source, setSource] = useState<Source>("upload")
   const [file, setFile] = useState<File | null>(null)
   const [youtubeUrl, setYoutubeUrl] = useState("")
@@ -19,7 +20,8 @@ export default function InputPanel({ onSubmit, submitting }: InputPanelProps) {
   const [dragActive, setDragActive] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const canSubmit = !submitting && (source === "upload" ? !!file : youtubeUrl.trim().length > 0)
+  const locked = submitting || !!disabled
+  const canSubmit = !locked && (source === "upload" ? !!file : youtubeUrl.trim().length > 0)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -58,19 +60,21 @@ export default function InputPanel({ onSubmit, submitting }: InputPanelProps) {
           onDrop={(e) => {
             e.preventDefault()
             setDragActive(false)
+            if (locked) return
             const dropped = e.dataTransfer.files?.[0]
             if (dropped) setFile(dropped)
           }}
-          onClick={() => fileInputRef.current?.click()}
-          className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-10 text-center transition-colors ${
-            dragActive ? "border-indigo-400/70 bg-indigo-400/5" : "border-white/15 hover:border-white/25"
-          }`}
+          onClick={() => !locked && fileInputRef.current?.click()}
+          className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-10 text-center transition-colors ${
+            locked ? "cursor-not-allowed opacity-50" : "cursor-pointer"
+          } ${dragActive ? "border-indigo-400/70 bg-indigo-400/5" : "border-white/15 hover:border-white/25"}`}
         >
           <input
             ref={fileInputRef}
             type="file"
             accept={ACCEPTED_TYPES}
             className="hidden"
+            disabled={locked}
             onChange={(e) => setFile(e.target.files?.[0] ?? null)}
           />
           <UploadCloud className="h-7 w-7 text-indigo-300" strokeWidth={1.75} />
@@ -108,6 +112,7 @@ export default function InputPanel({ onSubmit, submitting }: InputPanelProps) {
             onChange={(e) => setYoutubeUrl(e.target.value)}
             placeholder="https://www.youtube.com/watch?v=..."
             className="field pl-10"
+            disabled={locked}
           />
         </div>
       )}
@@ -123,6 +128,7 @@ export default function InputPanel({ onSubmit, submitting }: InputPanelProps) {
             checked={translate}
             onChange={(e) => setTranslate(e.target.checked)}
             className="peer sr-only"
+            disabled={locked}
           />
           <span className="absolute inset-0 rounded-full bg-white/15 transition-colors peer-checked:bg-gradient-to-r peer-checked:from-indigo-500 peer-checked:to-fuchsia-500" />
           <span className="absolute left-0.5 h-4 w-4 rounded-full bg-white transition-transform peer-checked:translate-x-4" />
@@ -134,6 +140,11 @@ export default function InputPanel({ onSubmit, submitting }: InputPanelProps) {
           <>
             <Loader2 className="h-4 w-4 animate-spin" />
             Starting…
+          </>
+        ) : disabled ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Processing…
           </>
         ) : (
           <>
